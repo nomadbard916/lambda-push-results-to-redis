@@ -7,6 +7,9 @@ REDIS_PASSWORD = os.environ.get("REDIS_PASSWORD")
 
 
 def lambda_handler(event, context):
+    print("triggered")
+    exit(0)
+
     # extract the S3 bucket and object key from the event
     bucket = event["Records"][0]["s3"]["bucket"]["name"]
     key = event["Records"][0]["s3"]["object"]["key"]
@@ -28,7 +31,7 @@ def lambda_handler(event, context):
     rows = csv.DictReader(csv_file.decode().splitlines())
     for row in rows:
         # set the Redis key-value
-        # TODO: TTL by different models
+        # TODO: TTL by different models. it's temp here.
         redis_pipeline.set(row["key"], row["value"], 3600)
 
     redis_pipeline.execute()
