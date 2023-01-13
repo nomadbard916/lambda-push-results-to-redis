@@ -1,15 +1,13 @@
 import csv
 import os
 import redis
+import boto3
 
 # environment variables
 REDIS_PASSWORD = os.environ.get("REDIS_PASSWORD")
 
 
 def lambda_handler(event, context):
-    print("triggered")
-    exit(1)
-
     # extract the S3 bucket and object key from the event
     bucket = event["Records"][0]["s3"]["bucket"]["name"]
     key = event["Records"][0]["s3"]["object"]["key"]
