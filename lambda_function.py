@@ -1,7 +1,9 @@
+# there's no need to install manually. lambda includes it.
+import boto3
+
 import csv
 import os
 import redis
-import boto3
 
 # environment variables
 REDIS_PASSWORD = os.environ.get("REDIS_PASSWORD")
@@ -12,7 +14,7 @@ def lambda_handler(event, context):
     bucket = event["Records"][0]["s3"]["bucket"]["name"]
     key = event["Records"][0]["s3"]["object"]["key"]
 
-    # TODO: pipeline
+    # TODO: cluster
     # Connect to redis and set pipeline
     redis_client = redis.Redis(
         host="your_redis_host", port=6379, password=REDIS_PASSWORD
@@ -25,11 +27,19 @@ def lambda_handler(event, context):
 
     csv_file = obj["Body"].read()
 
-    # parse the CSV file
-    rows = csv.DictReader(csv_file.decode().splitlines())
+    rows = csv.reader(csv_file.decode(), delimiter=":")
+
     for row in rows:
-        # set the Redis key-value
-        # TODO: TTL by different models. it's temp here.
-        redis_pipeline.set(row["key"], row["value"], 3600)
+        key, value = row
+        redis_pipeline.set(key, value, 3600)
+
+    # old example
+    # parse the CSV file
+    # rows = csv.reader(csv_file.decode())
+    # for row in rows:
+    #     # set the Redis key-value
+    #     # TODO: TTL by different models. it's temp here.
+
+    #     redis_pipeline.set(row["key"], row["value"], 3600)
 
     redis_pipeline.execute()
