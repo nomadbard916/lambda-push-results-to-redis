@@ -6,29 +6,28 @@ import os
 import redis
 
 # environment variables
+REDIS_HOST = os.environ.get("REDIS_HOST")
 REDIS_PASSWORD = os.environ.get("REDIS_PASSWORD")
 
 
 def lambda_handler(event, context):
     # extract the S3 bucket and object key from the event
-    bucket = event["Records"][0]["s3"]["bucket"]["name"]
-    key = event["Records"][0]["s3"]["object"]["key"]
+    s3_event_data = event["Records"][0]["s3"]
+    bucket = s3_event_data["bucket"]["name"]
+    key = s3_event_data["object"]["key"]
+
+    # TODO: sanity check for contents with "if" and "return"
 
     # TODO: cluster
     # Connect to redis and set pipeline
-    redis_client = redis.Redis(
-        host="your_redis_host", port=6379, password=REDIS_PASSWORD
-    )
+    redis_client = redis.Redis(host=REDIS_HOST, port=6379, password=REDIS_PASSWORD)
     redis_pipeline = redis_client.pipeline()
 
-    # download the CSV file from S3
-    s3 = boto3.client("s3")
-    obj = s3.get_object(Bucket=bucket, Key=key)
-
+    # download the CSV file from S3 and parse to iterator of lists
+    obj = boto3.client("s3").get_object(Bucket=bucket, Key=key)
     csv_file = obj["Body"].read()
 
     rows = csv.reader(csv_file.decode(), delimiter=":")
-
     for row in rows:
         key, value = row
         redis_pipeline.set(key, value, 3600)
