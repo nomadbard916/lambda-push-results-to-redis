@@ -1,16 +1,16 @@
-# there's no need to install manually. lambda includes it.
-import boto3
-
-import csv
-import os
-import redis
-
-# environment variables
-REDIS_HOST = os.environ.get("REDIS_HOST")
-REDIS_PASSWORD = os.environ.get("REDIS_PASSWORD")
-
-
 def lambda_handler(event, context):
+    # * put setup here so they won't interfere with local functions
+    # there's no need to install manually. lambda includes it.
+    import boto3
+
+    import csv
+    import os
+    import redis
+
+    # environment variables
+    REDIS_HOST = os.environ.get("REDIS_HOST")
+    REDIS_PASSWORD = os.environ.get("REDIS_PASSWORD")
+
     # extract the S3 bucket and object key from the event
     s3_event_data = event["Records"][0]["s3"]
     bucket = s3_event_data["bucket"]["name"]
@@ -42,3 +42,7 @@ def lambda_handler(event, context):
     #     redis_pipeline.set(row["key"], row["value"], 3600)
 
     redis_pipeline.execute()
+
+
+if __name__ == "__main__":
+    print("FQ")
