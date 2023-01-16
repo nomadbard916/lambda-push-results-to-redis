@@ -152,12 +152,13 @@ dmypy.json
 # Cython debug symbols
 cython_debug/
 
-
 .vscode
 
 # for lambda functions
 deployment.zip
 
+# for local development
+set_env_vars.sh
 
 # PyCharm
 #  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
