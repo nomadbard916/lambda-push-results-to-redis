@@ -5,7 +5,7 @@ import os
 import redis
 
 # environment variables
-IS_DEV = os.environ.get("IS_DEV")
+IS_DEV = False
 
 REDIS_HOST = os.environ.get("REDIS_HOST")
 REDIS_PASSWORD = os.environ.get("REDIS_PASSWORD")
@@ -31,17 +31,19 @@ def lambda_handler(event, context):
 
     # TODO: redis cluster
     # Connect to redis and set pipeline
-    redis_client = redis.Redis(host=REDIS_HOST, password=REDIS_PASSWORD)
-    redis_pipeline = redis_client.pipeline()
+    client = redis.Redis(host=REDIS_HOST, password=REDIS_PASSWORD)
+    pipeline = client.pipeline()
 
     # parse the csv file
     rows = csv.reader(csv_file.decode().splitlines(), delimiter=":")
     for row in rows:
         key, value = row
         # TODO: TTL by different models. it's temp here.
-        redis_pipeline.set(key.strip(), value.strip(), 3600)
+        pipeline.set(key.strip(), value.strip(), 3600)
 
-    redis_pipeline.execute()
+    pipeline.execute()
+
+    print("done setting key-values with pipeline")
 
 
 if __name__ == "__main__":
