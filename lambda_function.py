@@ -6,8 +6,14 @@ import os
 import redis
 
 # environment variables
-REDIS_HOST = os.environ.get("REDIS_HOST")
-REDIS_PASSWORD = os.environ.get("REDIS_PASSWORD")
+IS_DEV = os.environ.get("IS_DEV")
+
+if IS_DEV:
+    REDIS_HOST = "127.0.0.1"
+    REDIS_PASSWORD = ""
+else:
+    REDIS_HOST = os.environ.get("REDIS_HOST")
+    REDIS_PASSWORD = os.environ.get("REDIS_PASSWORD")
 
 
 def lambda_handler(event, context):
@@ -26,9 +32,14 @@ def lambda_handler(event, context):
     redis_client = redis.Redis(host=REDIS_HOST, port=6379, password=REDIS_PASSWORD)
     redis_pipeline = redis_client.pipeline()
 
-    # download the CSV file from S3 and parse to iterator of lists
-    obj = boto3.client("s3").get_object(Bucket=bucket, Key=key)
-    csv_file = obj["Body"].read()
+    # TODO: monkey patch csv_file for example file
+
+    if IS_DEV:
+        # download the CSV file from S3 and parse to iterator of lists
+        csv_file = open("test.csv", "r")
+    else:
+        obj = boto3.client("s3").get_object(Bucket=bucket, Key=key)
+        csv_file = obj["Body"].read()
 
     rows = csv.reader(csv_file.decode(), delimiter=":")
     for row in rows:
@@ -50,7 +61,7 @@ def lambda_handler(event, context):
 if __name__ == "__main__":
     import json
 
-    with open("example_request.json") as example_file:
-        data_dict = json.load(example_file)
+    with open("example_request.json") as example_event_file:
+        data_dict = json.load(example_event_file)
 
         lambda_handler(data_dict, None)
