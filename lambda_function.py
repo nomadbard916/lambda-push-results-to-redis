@@ -1,5 +1,5 @@
 # lambda includes it. we install it only to allow for importing at local execution.
-
+import boto3
 import csv
 import os
 import redis
@@ -12,12 +12,11 @@ REDIS_PASSWORD = os.environ.get("REDIS_PASSWORD")
 
 
 def lambda_handler(event, context):
+    # TODO: sanity check for data contents
     # extract the S3 bucket and object key from the event
     s3_event_data = event["Records"][0]["s3"]
     bucket = s3_event_data["bucket"]["name"]
     key = s3_event_data["object"]["key"]
-
-    # TODO: sanity check for contents with "if" and "return"
 
     # download the CSV file from S3 and parse to iterator of lists
     if IS_DEV:
@@ -33,13 +32,13 @@ def lambda_handler(event, context):
     # redis_client = redis.Redis(host=REDIS_HOST, port=6379, password=REDIS_PASSWORD)
     # redis_pipeline = redis_client.pipeline()
 
-    rows = csv.reader(csv_file.decode(), delimiter=":")
+    rows = csv.reader(csv_file.decode().splitlines(), delimiter=":")
 
     for row in rows:
-        # key, value = row
-        print(row)
+        key, value = row
+        print((key, value))
 
-    exit()
+    exit(0)
 
     # old example
     # parse the CSV file
@@ -50,12 +49,11 @@ def lambda_handler(event, context):
 
     #     redis_pipeline.set(row["key"], row["value"], 3600)
 
-    redis_pipeline.execute()
+    # redis_pipeline.execute()
 
 
 if __name__ == "__main__":
     import json
-    import boto3
 
     IS_DEV = True
 
