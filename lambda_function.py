@@ -13,6 +13,7 @@ REDIS_PASSWORD = os.environ.get("REDIS_PASSWORD")
 
 def lambda_handler(event, context):
     # TODO: sanity check for data contents
+
     # extract the S3 bucket and object key from the event
     s3_event_data = event["Records"][0]["s3"]
     bucket = s3_event_data["bucket"]["name"]
@@ -20,7 +21,8 @@ def lambda_handler(event, context):
 
     # download the CSV file from S3 and parse to iterator of lists
     if IS_DEV:
-        # make bytes ourselves
+        # make bytes ourselves, by reading local file directly,
+        # skipping event data altogether.
         with open("example_data.csv", "rb") as example_csv_file:
             csv_file = example_csv_file.read()
     else:
@@ -29,27 +31,17 @@ def lambda_handler(event, context):
 
     # TODO: redis cluster
     # Connect to redis and set pipeline
-    # redis_client = redis.Redis(host=REDIS_HOST, port=6379, password=REDIS_PASSWORD)
-    # redis_pipeline = redis_client.pipeline()
+    redis_client = redis.Redis(host=REDIS_HOST, password=REDIS_PASSWORD)
+    redis_pipeline = redis_client.pipeline()
 
+    # parse the csv file
     rows = csv.reader(csv_file.decode().splitlines(), delimiter=":")
-
     for row in rows:
         key, value = row
-        print((key, value))
+        # TODO: TTL by different models. it's temp here.
+        redis_pipeline.set(key.strip(), value.strip(), 3600)
 
-    exit(0)
-
-    # old example
-    # parse the CSV file
-    # rows = csv.reader(csv_file.decode())
-    # for row in rows:
-    #     # set the Redis key-value
-    #     # TODO: TTL by different models. it's temp here.
-
-    #     redis_pipeline.set(row["key"], row["value"], 3600)
-
-    # redis_pipeline.execute()
+    redis_pipeline.execute()
 
 
 if __name__ == "__main__":
