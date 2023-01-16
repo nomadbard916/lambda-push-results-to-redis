@@ -5,6 +5,8 @@ cd venv/lib/python3.9/site-packages
 
 # include files in zip other than redis-related files
 zip -r deployment.zip . \
+    -x \*.csv \
+    -x \*.json \
     -x ./setuptools\*/\* \
     -x ./pip\*/\* \
     -x \*__pycache__/\* \
