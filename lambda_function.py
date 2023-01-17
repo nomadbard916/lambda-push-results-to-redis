@@ -2,13 +2,16 @@
 import boto3
 import csv
 import os
-import redis
+from redis import Redis
+import logging
 
 # environment variables
-IS_DEV = False
-
 REDIS_HOST = os.environ.get("REDIS_HOST")
 REDIS_PASSWORD = os.environ.get("REDIS_PASSWORD")
+
+# global setup
+IS_DEV = False
+logging.basicConfig(level=logging.INFO)
 
 
 def lambda_handler(event, context):
@@ -31,7 +34,7 @@ def lambda_handler(event, context):
 
     # TODO: redis cluster
     # Connect to redis and set pipeline
-    client = redis.Redis(host=REDIS_HOST, password=REDIS_PASSWORD)
+    client = Redis(host=REDIS_HOST, password=REDIS_PASSWORD)
     pipeline = client.pipeline()
 
     # parse the csv file
