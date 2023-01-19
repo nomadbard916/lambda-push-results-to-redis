@@ -32,16 +32,19 @@ def lambda_handler(event, context):
         obj = boto3.client("s3").get_object(Bucket=bucket, Key=key)
         csv_file = obj["Body"].read()
 
-    # TODO: redis cluster
+    # TODO: change to redis cluster
     # Connect to redis and set pipeline
-    client = Redis(host=REDIS_HOST, password=REDIS_PASSWORD)
+    if IS_DEV:
+        client = Redis(host=REDIS_HOST)
+    else:
+        client = Redis(host=REDIS_HOST, password=REDIS_PASSWORD, ssl=True)
     pipeline = client.pipeline()
 
     # parse the csv file
     rows = csv.reader(csv_file.decode().splitlines(), delimiter=":")
     for row in rows:
         key, value = row
-        # TODO: TTL by different models. it's temp here.
+        # TODO: TTL by different models. it's temp value here.
         pipeline.set(key.strip(), value.strip(), 3600)
 
     pipeline.execute()
