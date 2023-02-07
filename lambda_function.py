@@ -50,6 +50,8 @@ def lambda_handler(event, context):
 
     pipeline.execute()
 
+    # TODO: helper function to get the value from redis, remove when production.
+    print(client.keys())
     print("done setting key-values with pipeline")
 
 
