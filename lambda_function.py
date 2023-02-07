@@ -12,6 +12,7 @@ REDIS_PASSWORD = os.environ.get("REDIS_PASSWORD")
 # global setup
 IS_DEV = False
 logging.basicConfig(level=logging.INFO)
+TTL = 86400
 
 
 def lambda_handler(event, context):
@@ -45,7 +46,7 @@ def lambda_handler(event, context):
     for row in rows:
         key, value = row
         # TODO: TTL by different models. it's temp value here.
-        pipeline.set(key.strip(), value.strip(), 3600)
+        pipeline.set(key.strip(), value.strip(), TTL)
 
     pipeline.execute()
 
