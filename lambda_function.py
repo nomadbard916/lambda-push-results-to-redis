@@ -7,7 +7,6 @@ import logging
 
 # environment variables
 REDIS_HOST = os.environ.get("REDIS_HOST")
-REDIS_PASSWORD = os.environ.get("REDIS_PASSWORD")
 
 # global setup
 IS_DEV = False
@@ -35,10 +34,7 @@ def lambda_handler(event, context):
 
     # TODO: change to redis cluster
     # Connect to redis and set pipeline
-    if IS_DEV:
-        client = Redis(host=REDIS_HOST)
-    else:
-        client = Redis(host=REDIS_HOST, password=REDIS_PASSWORD, ssl=True)
+    client = Redis(host=REDIS_HOST)
     pipeline = client.pipeline()
 
     # parse the csv file
@@ -61,7 +57,6 @@ if __name__ == "__main__":
     IS_DEV = True
 
     REDIS_HOST = "127.0.0.1"
-    REDIS_PASSWORD = ""
 
     with open("example_request.json") as example_event_file:
         data_dict = json.load(example_event_file)
