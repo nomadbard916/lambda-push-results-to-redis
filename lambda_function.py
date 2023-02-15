@@ -14,6 +14,30 @@ logging.basicConfig(level=logging.INFO)
 TTL = 86400
 
 
+def get_models() -> dict:
+    """ get models data. prod. environment should pull from DB, while dev. just freely fill in fake data """
+    # TODO: fetch this data from DB in production environment
+    return {
+        '0001': {
+            "TTL": 172800,  # 2 days
+            'name': "sinica_tag",
+            'description': '中研院模型',
+            'created_at': '2023-02-14 17:46:03',
+            'updated_at': '2023-02-14 17:46:03',
+            'disabled_at': None  # TODO: consider should we really use null in DB?
+        },
+        'st': {
+            "TTL": 172800,  # 2 days
+            'name': "sinica_tag_alt",
+            'description': '中研院模型 alternative',
+            'created_at': '2023-02-14 17:46:03',
+            'updated_at': '2023-02-14 17:46:03',
+            'disabled_at': None  # TODO: consider should we really use null in DB?
+        }
+        #     ......other models
+    }
+
+
 def lambda_handler(event, context):
     # TODO: sanity check for data contents
 
@@ -21,23 +45,37 @@ def lambda_handler(event, context):
 
     csv_file = get_csv_file_binary(bucket, key)
 
-    # TODO: change to redis cluster
-    # Connect to redis and set pipeline
-    client = Redis(host=REDIS_HOST)
-    pipeline = client.pipeline()
+    client, pipeline = set_redis()
 
+    save_to_redis(csv_file, pipeline)
+
+    print_result_info(client)
+
+
+def print_result_info(client):
+    # TODO: helper function to get all the keys from redis. remove when production.
+    print(client.keys())
+    print("done setting key-values with pipeline")
+
+
+def save_to_redis(csv_file, pipeline):
     # parse the csv file
     rows = csv.reader(csv_file.decode().splitlines(), delimiter=":")
     for row in rows:
         key, value = row
         # TODO: TTL by different models. it's temp value here.
         pipeline.set(key.strip(), value.strip(), TTL)
-
     pipeline.execute()
 
-    # TODO: helper function to get the value from redis, remove when production.
-    print(client.keys())
-    print("done setting key-values with pipeline")
+
+def set_redis():
+    """     Connect to redis and set pipeline """
+    # TODO: change to redis cluster
+
+    client = Redis(host=REDIS_HOST)
+    pipeline = client.pipeline()
+
+    return client, pipeline
 
 
 def get_csv_file_binary(bucket, key) -> bytes:
