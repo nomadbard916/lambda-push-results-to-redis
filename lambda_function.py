@@ -6,6 +6,7 @@ from redis import Redis
 import logging
 import argparse
 from datetime import datetime
+import re
 
 # environment variables
 REDIS_HOST = os.environ.get("REDIS_HOST")
@@ -25,7 +26,7 @@ def lambda_handler(event, context):
 
     bucket, file_key = extract_s3_params(event)
 
-    uploaded_time = get_uploaded_time(file_key)
+    uploaded_time = get_uploaded_date_hour(file_key)
 
     client, pipeline = set_redis()
 
@@ -58,18 +59,21 @@ def extract_s3_params(event):
     return bucket, key
 
 
-def get_uploaded_time(key) -> str:
+def get_uploaded_date_hour(s3_file_key) -> str:
+    """ get date_hour by environment and/or argument. format: %Y-%m-%d-%H """
+    regex_date_hour_pattern = re.compile(r"^\d{4}-\d{2}-\d{2}-\d{2}$")
+
     # TODO: sanity check for date_hour format
     if IS_DEV:
         cli_args = parse_cli_args()
-        if cli_args.upload_time:
-            return cli_args.upload_time
-        else:
-            return CURRENT_DATE_HOUR
-    else:
-        date_hour = key.split("/")[0]
+        upload_time_param = cli_args.upload_time
+        if upload_time_param and regex_date_hour_pattern.match(upload_time_param):
+            return upload_time_param
+        return CURRENT_DATE_HOUR
 
-        return date_hour
+    date_hour = s3_file_key.split("/")[0]
+
+    return date_hour if regex_date_hour_pattern.match(date_hour) else CURRENT_DATE_HOUR
 
 
 def set_redis():
