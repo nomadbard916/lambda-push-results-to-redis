@@ -14,6 +14,22 @@ logging.basicConfig(level=logging.INFO)
 TTL = 86400
 
 
+def lambda_handler(event, context):
+    # TODO: sanity check for data contents
+
+    bucket, key = extract_s3_params(event)
+
+    csv_file_binary = get_csv_file_binary(bucket, key)
+
+    client, pipeline = set_redis()
+
+    src_models = get_models()
+
+    save_to_redis(csv_file_binary, src_models, pipeline)
+
+    print_result_info(client)
+
+
 def get_models() -> dict:
     """ get models data. prod. environment should pull from DB, while dev. just freely fill in fake data """
     # TODO: fetch this data from DB in production environment
@@ -40,24 +56,8 @@ def get_models() -> dict:
     }
 
 
-def get_model_ttl(key) -> int:
-    return TTL
-
-
-def lambda_handler(event, context):
-    # TODO: sanity check for data contents
-
-    bucket, key = extract_s3_params(event)
-
-    csv_file = get_csv_file_binary(bucket, key)
-
-    model_ttl = get_model_ttl(key)
-
-    client, pipeline = set_redis()
-
-    save_to_redis(csv_file, model_ttl, pipeline)
-
-    print_result_info(client)
+def get_model_ttl(src_models, model_id) -> int:
+    return src_models[model_id]['TTL']
 
 
 def print_result_info(client):
@@ -66,13 +66,19 @@ def print_result_info(client):
     print("done setting key-values with pipeline")
 
 
-def save_to_redis(csv_file, model_ttl, pipeline):
-    # parse the csv file
-    rows = csv.reader(csv_file.decode(encoding='utf-8-sig').splitlines(), delimiter=":")
+def save_to_redis(csv_file_binary, src_models, pipeline):
+    # parse the csv file from binary
+    rows = csv.reader(csv_file_binary.decode(encoding='utf-8-sig').splitlines(), delimiter=":")
     for row in rows:
-        key, value = row
-        # TODO: TTL by different models. it's temp value here.
+        raw_key, raw_value = row
+        key, value = raw_key.strip(), raw_value.strip()
+
+        model_id = key.split("-")[-1]
+
+        model_ttl = get_model_ttl(src_models, model_id)
+
         pipeline.set(key.strip(), value.strip(), model_ttl)
+
     pipeline.execute()
 
 
