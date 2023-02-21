@@ -37,7 +37,11 @@ def get_uploaded_time(key) -> str:
 def parse_cli_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--upload_time', '-u', help='set upload time manually by developer, for testing purpose')
+    parser.add_argument(
+        "--upload_time",
+        "-u",
+        help="set upload time manually by developer, for testing purpose",
+    )
 
     return parser.parse_args()
 
@@ -60,33 +64,33 @@ def lambda_handler(event, context):
 
 
 def get_models() -> dict:
-    """ get models data. prod. environment should pull from DB, while dev. just freely fill in fake data """
+    """get models data. prod. environment should pull from DB, while dev. just freely fill in fake data"""
     # TODO: fetch this data from DB in production environment
     two_days = 172800
 
     return {
-        '0001': {
+        "0001": {
             "TTL": two_days,  # 2 days
-            'name': "sinica_tag",
-            'description': '中研院模型',
-            'created_at': '2023-02-14 17:46:03',
-            'updated_at': '2023-02-14 17:46:03',
-            'disabled_at': None  # TODO: consider should we really use null in DB?
+            "name": "sinica_tag",
+            "description": "中研院模型",
+            "created_at": "2023-02-14 17:46:03",
+            "updated_at": "2023-02-14 17:46:03",
+            "disabled_at": None,  # TODO: consider should we really use null in DB?
         },
-        'st': {
+        "st": {
             "TTL": two_days,  # 2 days
-            'name': "sinica_tag_alt",
-            'description': '中研院模型 alternative',
-            'created_at': '2023-02-14 17:46:03',
-            'updated_at': '2023-02-14 17:46:03',
-            'disabled_at': None  # TODO: consider should we really use null in DB?
+            "name": "sinica_tag_alt",
+            "description": "中研院模型 alternative",
+            "created_at": "2023-02-14 17:46:03",
+            "updated_at": "2023-02-14 17:46:03",
+            "disabled_at": None,  # TODO: consider should we really use null in DB?
         }
         #     ......other models
     }
 
 
 def get_model_ttl(src_models, model_id) -> int:
-    return src_models[model_id]['TTL']
+    return src_models[model_id]["TTL"]
 
 
 def print_result_info(client):
@@ -96,7 +100,9 @@ def print_result_info(client):
 
 
 def get_date_hour_diff(later_time: str, earlier_time: str) -> int:
-    time_delta = datetime.strptime(later_time, DATE_HOUR_FORMAT) - datetime.strptime(earlier_time, DATE_HOUR_FORMAT)
+    time_delta = datetime.strptime(later_time, DATE_HOUR_FORMAT) - datetime.strptime(
+        earlier_time, DATE_HOUR_FORMAT
+    )
 
     seconds_float = time_delta.total_seconds()
 
@@ -111,7 +117,9 @@ def get_real_ttl(model_ttl: int, uploaded_time: str) -> int:
 
 def save_to_redis(csv_file_binary, uploaded_time, src_models, pipeline):
     # parse the csv file from binary
-    rows = csv.reader(csv_file_binary.decode(encoding='utf-8-sig').splitlines(), delimiter=":")
+    rows = csv.reader(
+        csv_file_binary.decode(encoding="utf-8-sig").splitlines(), delimiter=":"
+    )
     for row in rows:
         raw_key, raw_value = row
         key, value = raw_key.strip(), raw_value.strip()
@@ -128,7 +136,7 @@ def save_to_redis(csv_file_binary, uploaded_time, src_models, pipeline):
 
 
 def set_redis():
-    """     Connect to redis and set pipeline """
+    """Connect to redis and set pipeline"""
     # TODO: change to redis cluster
 
     client = Redis(host=REDIS_HOST)
@@ -138,7 +146,7 @@ def set_redis():
 
 
 def get_csv_file_binary(bucket, file_key) -> bytes:
-    """   download the CSV file from S3 and parse to iterator of lists """
+    """download the CSV file from S3 and parse to iterator of lists"""
     if IS_DEV:
         # make bytes ourselves, by reading local file directly,
         # skipping event data altogether.
@@ -150,7 +158,7 @@ def get_csv_file_binary(bucket, file_key) -> bytes:
 
 
 def extract_s3_params(event):
-    """ extract the S3 bucket and object key from the event """
+    """extract the S3 bucket and object key from the event"""
     s3_event_data = event["Records"][0]["s3"]
     bucket = s3_event_data["bucket"]["name"]
     key = s3_event_data["object"]["key"]
