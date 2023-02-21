@@ -1,4 +1,4 @@
-# lambda includes it. we install it only to allow for importing at local execution.
+# lambda environment »includes boto3. we install it only to allow for importing at local execution.
 import boto3
 import csv
 import os
@@ -17,9 +17,11 @@ TTL = 86400
 def get_models() -> dict:
     """ get models data. prod. environment should pull from DB, while dev. just freely fill in fake data """
     # TODO: fetch this data from DB in production environment
+    two_days = 172800
+
     return {
         '0001': {
-            "TTL": 172800,  # 2 days
+            "TTL": two_days,  # 2 days
             'name': "sinica_tag",
             'description': '中研院模型',
             'created_at': '2023-02-14 17:46:03',
@@ -27,7 +29,7 @@ def get_models() -> dict:
             'disabled_at': None  # TODO: consider should we really use null in DB?
         },
         'st': {
-            "TTL": 172800,  # 2 days
+            "TTL": two_days,  # 2 days
             'name': "sinica_tag_alt",
             'description': '中研院模型 alternative',
             'created_at': '2023-02-14 17:46:03',
@@ -38,6 +40,10 @@ def get_models() -> dict:
     }
 
 
+def get_model_ttl(key) -> int:
+    return TTL
+
+
 def lambda_handler(event, context):
     # TODO: sanity check for data contents
 
@@ -45,9 +51,11 @@ def lambda_handler(event, context):
 
     csv_file = get_csv_file_binary(bucket, key)
 
+    model_ttl = get_model_ttl(key)
+
     client, pipeline = set_redis()
 
-    save_to_redis(csv_file, pipeline)
+    save_to_redis(csv_file, model_ttl, pipeline)
 
     print_result_info(client)
 
@@ -58,13 +66,13 @@ def print_result_info(client):
     print("done setting key-values with pipeline")
 
 
-def save_to_redis(csv_file, pipeline):
+def save_to_redis(csv_file, model_ttl, pipeline):
     # parse the csv file
-    rows = csv.reader(csv_file.decode().splitlines(), delimiter=":")
+    rows = csv.reader(csv_file.decode(encoding='utf-8-sig').splitlines(), delimiter=":")
     for row in rows:
         key, value = row
         # TODO: TTL by different models. it's temp value here.
-        pipeline.set(key.strip(), value.strip(), TTL)
+        pipeline.set(key.strip(), value.strip(), model_ttl)
     pipeline.execute()
 
 
