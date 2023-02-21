@@ -4,6 +4,8 @@ import csv
 import os
 from redis import Redis
 import logging
+import argparse
+from datetime import datetime
 
 # environment variables
 REDIS_HOST = os.environ.get("REDIS_HOST")
@@ -11,21 +13,48 @@ REDIS_HOST = os.environ.get("REDIS_HOST")
 # global setup
 IS_DEV = False
 logging.basicConfig(level=logging.INFO)
+
 TTL = 86400
+DATE_HOUR_FORMAT = "%Y-%m-%d-%H"
+NOW = datetime.now()
+CURRENT_DATE_HOUR = NOW.strftime(DATE_HOUR_FORMAT)
+
+
+def get_uploaded_time(key) -> str:
+    # TODO: sanity check for date_hour format
+    if IS_DEV:
+        cli_args = parse_cli_args()
+        if cli_args.upload_time:
+            return cli_args.upload_time
+        else:
+            return CURRENT_DATE_HOUR
+    else:
+        date_hour = key.split("/")[0]
+
+        return date_hour
+
+
+def parse_cli_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('--upload_time', '-u', help='set upload time manually by developer, for testing purpose')
+
+    return parser.parse_args()
 
 
 def lambda_handler(event, context):
     # TODO: sanity check for data contents
+    parse_cli_args()
 
-    bucket, key = extract_s3_params(event)
+    bucket, file_key = extract_s3_params(event)
 
-    csv_file_binary = get_csv_file_binary(bucket, key)
+    uploaded_time = get_uploaded_time(file_key)
 
     client, pipeline = set_redis()
 
-    src_models = get_models()
+    csv_file_binary = get_csv_file_binary(bucket, file_key)
 
-    save_to_redis(csv_file_binary, src_models, pipeline)
+    save_to_redis(csv_file_binary, uploaded_time, get_models(), pipeline)
 
     print_result_info(client)
 
@@ -66,7 +95,21 @@ def print_result_info(client):
     print("done setting key-values with pipeline")
 
 
-def save_to_redis(csv_file_binary, src_models, pipeline):
+def get_date_hour_diff(later_time: str, earlier_time: str) -> int:
+    time_delta = datetime.strptime(later_time, DATE_HOUR_FORMAT) - datetime.strptime(earlier_time, DATE_HOUR_FORMAT)
+
+    seconds_float = time_delta.total_seconds()
+
+    return int(seconds_float)
+
+
+def get_real_ttl(model_ttl: int, uploaded_time: str) -> int:
+    date_hour_diff = get_date_hour_diff(CURRENT_DATE_HOUR, uploaded_time)
+
+    return model_ttl - date_hour_diff
+
+
+def save_to_redis(csv_file_binary, uploaded_time, src_models, pipeline):
     # parse the csv file from binary
     rows = csv.reader(csv_file_binary.decode(encoding='utf-8-sig').splitlines(), delimiter=":")
     for row in rows:
@@ -77,7 +120,9 @@ def save_to_redis(csv_file_binary, src_models, pipeline):
 
         model_ttl = get_model_ttl(src_models, model_id)
 
-        pipeline.set(key.strip(), value.strip(), model_ttl)
+        real_ttl = get_real_ttl(model_ttl, uploaded_time)
+
+        pipeline.set(key.strip(), value.strip(), real_ttl)
 
     pipeline.execute()
 
@@ -92,7 +137,7 @@ def set_redis():
     return client, pipeline
 
 
-def get_csv_file_binary(bucket, key) -> bytes:
+def get_csv_file_binary(bucket, file_key) -> bytes:
     """   download the CSV file from S3 and parse to iterator of lists """
     if IS_DEV:
         # make bytes ourselves, by reading local file directly,
@@ -100,7 +145,7 @@ def get_csv_file_binary(bucket, key) -> bytes:
         with open("example_data.csv", "rb") as example_csv_file:
             return example_csv_file.read()
 
-    obj = boto3.client("s3").get_object(Bucket=bucket, Key=key)
+    obj = boto3.client("s3").get_object(Bucket=bucket, Key=file_key)
     return obj["Body"].read()
 
 
