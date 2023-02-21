@@ -20,18 +20,20 @@ NOW = datetime.now()
 CURRENT_DATE_HOUR = NOW.strftime(DATE_HOUR_FORMAT)
 
 
-def get_uploaded_time(key) -> str:
-    # TODO: sanity check for date_hour format
-    if IS_DEV:
-        cli_args = parse_cli_args()
-        if cli_args.upload_time:
-            return cli_args.upload_time
-        else:
-            return CURRENT_DATE_HOUR
-    else:
-        date_hour = key.split("/")[0]
+def lambda_handler(event, context):
+    parse_cli_args()
 
-        return date_hour
+    bucket, file_key = extract_s3_params(event)
+
+    uploaded_time = get_uploaded_time(file_key)
+
+    client, pipeline = set_redis()
+
+    csv_file_binary = get_csv_file_binary(bucket, file_key)
+
+    save_to_redis(csv_file_binary, uploaded_time, get_models(), pipeline)
+
+    print_result_info(client)
 
 
 def parse_cli_args() -> argparse.Namespace:
@@ -46,21 +48,50 @@ def parse_cli_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def lambda_handler(event, context):
-    # TODO: sanity check for data contents
-    parse_cli_args()
+def extract_s3_params(event):
+    """extract the S3 bucket and object key from the event"""
 
-    bucket, file_key = extract_s3_params(event)
+    s3_event_data = event["Records"][0]["s3"]
+    bucket = s3_event_data["bucket"]["name"]
+    key = s3_event_data["object"]["key"]
 
-    uploaded_time = get_uploaded_time(file_key)
+    return bucket, key
 
-    client, pipeline = set_redis()
 
-    csv_file_binary = get_csv_file_binary(bucket, file_key)
+def get_uploaded_time(key) -> str:
+    # TODO: sanity check for date_hour format
+    if IS_DEV:
+        cli_args = parse_cli_args()
+        if cli_args.upload_time:
+            return cli_args.upload_time
+        else:
+            return CURRENT_DATE_HOUR
+    else:
+        date_hour = key.split("/")[0]
 
-    save_to_redis(csv_file_binary, uploaded_time, get_models(), pipeline)
+        return date_hour
 
-    print_result_info(client)
+
+def set_redis():
+    """Connect to redis and set pipeline"""
+    # TODO: change to redis cluster
+
+    client = Redis(host=REDIS_HOST)
+    pipeline = client.pipeline()
+
+    return client, pipeline
+
+
+def get_csv_file_binary(bucket, file_key) -> bytes:
+    """download the CSV file from S3 and parse to iterator of lists"""
+    if IS_DEV:
+        # make bytes ourselves, by reading local file directly,
+        # skipping event data altogether.
+        with open("example_data.csv", "rb") as example_csv_file:
+            return example_csv_file.read()
+
+    obj = boto3.client("s3").get_object(Bucket=bucket, Key=file_key)
+    return obj["Body"].read()
 
 
 def get_models() -> dict:
@@ -93,12 +124,6 @@ def get_model_ttl(src_models, model_id) -> int:
     return src_models[model_id]["TTL"]
 
 
-def print_result_info(client):
-    # TODO: helper function to get all the keys from redis. remove when production.
-    print(client.keys())
-    print("done setting key-values with pipeline")
-
-
 def get_date_hour_diff(later_time: str, earlier_time: str) -> int:
     time_delta = datetime.strptime(later_time, DATE_HOUR_FORMAT) - datetime.strptime(
         earlier_time, DATE_HOUR_FORMAT
@@ -116,6 +141,8 @@ def get_real_ttl(model_ttl: int, uploaded_time: str) -> int:
 
 
 def save_to_redis(csv_file_binary, uploaded_time, src_models, pipeline):
+    # TODO: sanity check for data contents
+
     # parse the csv file from binary
     rows = csv.reader(
         csv_file_binary.decode(encoding="utf-8-sig").splitlines(), delimiter=":"
@@ -135,35 +162,10 @@ def save_to_redis(csv_file_binary, uploaded_time, src_models, pipeline):
     pipeline.execute()
 
 
-def set_redis():
-    """Connect to redis and set pipeline"""
-    # TODO: change to redis cluster
-
-    client = Redis(host=REDIS_HOST)
-    pipeline = client.pipeline()
-
-    return client, pipeline
-
-
-def get_csv_file_binary(bucket, file_key) -> bytes:
-    """download the CSV file from S3 and parse to iterator of lists"""
-    if IS_DEV:
-        # make bytes ourselves, by reading local file directly,
-        # skipping event data altogether.
-        with open("example_data.csv", "rb") as example_csv_file:
-            return example_csv_file.read()
-
-    obj = boto3.client("s3").get_object(Bucket=bucket, Key=file_key)
-    return obj["Body"].read()
-
-
-def extract_s3_params(event):
-    """extract the S3 bucket and object key from the event"""
-    s3_event_data = event["Records"][0]["s3"]
-    bucket = s3_event_data["bucket"]["name"]
-    key = s3_event_data["object"]["key"]
-
-    return bucket, key
+def print_result_info(client):
+    # TODO: helper function to get all the keys from redis. remove when production.
+    print(client.keys())
+    print("done setting key-values with pipeline")
 
 
 if __name__ == "__main__":
