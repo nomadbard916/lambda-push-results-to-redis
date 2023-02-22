@@ -1,4 +1,4 @@
-# lambda environment »includes boto3. we install it only to allow for importing at local execution.
+# lambda environment already includes boto3. we install it only to allow for importing at local execution.
 import boto3
 import csv
 import os
@@ -141,7 +141,9 @@ def get_date_hour_diff(later_time: str, earlier_time: str) -> int:
 def get_real_ttl(model_ttl: int, uploaded_time: str) -> int:
     date_hour_diff = get_date_hour_diff(CURRENT_DATE_HOUR, uploaded_time)
 
-    return model_ttl - date_hour_diff
+    possible_ttl = model_ttl - date_hour_diff
+
+    return possible_ttl if possible_ttl > 0 else model_ttl
 
 
 def save_to_redis(csv_file_binary, uploaded_time, src_models, pipeline):
