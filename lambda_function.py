@@ -60,7 +60,7 @@ def extract_s3_params(event):
 
 
 def get_uploaded_date_hour(s3_file_key) -> str:
-    """ get date_hour by environment and/or argument. format: %Y-%m-%d-%H """
+    """get date_hour by environment and/or argument. format: %Y-%m-%d-%H"""
     regex_date_hour_pattern = re.compile(r"^\d{4}-\d{2}-\d{2}-\d{2}$")
 
     # TODO: sanity check for date_hour format
@@ -101,6 +101,10 @@ def get_csv_file_binary(bucket, file_key) -> bytes:
 def get_models() -> dict:
     """get models data. prod. environment should pull from DB, while dev. just freely fill in fake data"""
     # TODO: fetch this data from DB in production environment
+
+    # TODO: when pulling data from production, the auto-increment id needs to be padded to 4 digits with '0'
+    # e.g. id:1 => model:0001
+
     two_days = 172800
 
     return {
